@@ -7,6 +7,7 @@
 <meta name="description" content="An AI agent that uses tools, with limits written in code.">
 <meta name="theme-color" content="#0a2540">
 <link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="flow.css">
 </head>
 <body data-github="https://github.com/MontaserAlajamy/helpdesk-agent">
 <a class="skip" href="#msg">Skip to the message box</a>
@@ -64,11 +65,37 @@
   </section>
 
   <section class="col side-col">
-    <div class="card trace-card" aria-labelledby="trace-h">
-      <h2 id="trace-h" class="card-h">What the agent did</h2>
-      <ol id="trace" class="trace" aria-live="polite" aria-relevant="additions">
-        <li class="trace-empty">Each tool call shows here as it happens.</li>
-      </ol>
+    <div class="card flow-card" id="flow-card">
+      <div class="panel-head">
+        <h2 class="sr-only" id="trace-h">What the agent did</h2>
+        <span class="present-title" aria-hidden="true">Helpdesk Agent <span>· live flow</span></span>
+        <div class="tabs" role="tablist" aria-labelledby="trace-h">
+          <button type="button" role="tab" class="tab" id="tab-flow" aria-selected="true" aria-controls="pane-flow">Live flow</button>
+          <button type="button" role="tab" class="tab" id="tab-steps" aria-selected="false" aria-controls="pane-steps" tabindex="-1">Steps</button>
+        </div>
+        <div class="flow-ctrls" id="flow-ctrls">
+          <button type="button" class="ctl" id="flow-replay" disabled title="Play the last run again">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4.5H9"/></svg>Replay</button>
+          <div class="seg" role="group" aria-label="Playback speed">
+            <button type="button" class="ctl" data-speed="0.5" aria-pressed="false">0.5×</button>
+            <button type="button" class="ctl" data-speed="1" aria-pressed="true">1×</button>
+            <button type="button" class="ctl" data-speed="2" aria-pressed="false">2×</button>
+          </div>
+          <button type="button" class="ctl" id="flow-full" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Full screen</span></button>
+        </div>
+      </div>
+      <div class="pane pane-flow" id="pane-flow" role="tabpanel" aria-labelledby="tab-flow">
+        <p class="flow-caption" id="flow-caption" data-tone="sky"><span class="cap-k">Ready</span><span class="cap-t"></span></p>
+        <div class="flow-stage" id="flow-stage"></div>
+        <p class="sr-only" id="flow-log" aria-live="polite"></p>
+        <div class="flow-dock" id="flow-dock"></div>
+      </div>
+      <div class="pane pane-steps" id="pane-steps" role="tabpanel" aria-labelledby="tab-steps" hidden>
+        <ol id="trace" class="trace" aria-live="polite" aria-relevant="additions">
+          <li class="trace-empty">Each tool call shows here as it happens.</li>
+        </ol>
+      </div>
     </div>
 
     <div class="card" aria-labelledby="approve-h">
@@ -96,6 +123,7 @@
   <p class="foot">This demo keeps your tickets to your browser session. Limits: 500 characters a message, 12 messages an hour.</p>
 </section>
 
+<script src="flow.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

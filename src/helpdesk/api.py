@@ -140,6 +140,7 @@ def create_app(settings: Settings | None = None, llm: LLM | None = None,
         async with sessions() as s:
             if await runbooks.count(s) == 0 and RUNBOOK_DIR.exists():
                 await runbooks.seed(s, runbooks.load_dir(RUNBOOK_DIR), embedder)
+            guides = await runbooks.count(s)
         local: LocalServices | None = None
         services = settings.services
         if settings.demo_mode:  # real listeners on localhost; a visitor's "down" switch points one at a closed port
@@ -150,6 +151,7 @@ def create_app(settings: Settings | None = None, llm: LLM | None = None,
         app.state.local = local
         app.state.services = services
         app.state.tools = build_tools(services)
+        app.state.guides = guides
         app.state.llm = llm  # built lazily so the API starts without a key
         try:
             yield
@@ -248,7 +250,8 @@ def create_app(settings: Settings | None = None, llm: LLM | None = None,
     async def meta(request: Request) -> dict:
         model = "fake (offline demo)" if settings.llm_provider == "fake" else settings.llm_model
         return {"demo": settings.demo_mode, "model": model, "services": sorted(request.app.state.services),
-                "max_steps": settings.max_steps, "version": __version__}
+                "max_steps": settings.max_steps, "tools": len(request.app.state.tools) + 1,
+                "guides": request.app.state.guides, "version": __version__}
 
     @app.get("/v1/tickets", response_model=list[TicketOut])
     async def list_tickets(request: Request, owner: Owner, status: str | None = None) -> list[Ticket]:

@@ -184,6 +184,19 @@ def test_page_and_meta(tmp_path):
     assert meta == {**meta, "demo": False, "model": "m", "services": []}
 
 
+def test_live_flow_files_are_served_and_linked(tmp_path):
+    with client(tmp_path, [], demo=True, provider="fake") as c:
+        page = c.get("/").text
+        js, css = c.get("/flow.js"), c.get("/flow.css")
+        meta = c.get("/v1/meta").json()
+    assert js.status_code == 200 and "javascript" in js.headers["content-type"] and "HelpdeskFlow" in js.text
+    assert css.status_code == 200 and "text/css" in css.headers["content-type"]
+    assert '<script src="flow.js"></script>' in page and 'href="flow.css"' in page
+    assert page.index("flow.js") < page.index("app.js")  # app.js drives the flow, so it loads second
+    assert 'id="flow-stage"' in page and 'role="tablist"' in page
+    assert meta["tools"] == 6 and meta["guides"] == 9
+
+
 async def test_fake_llm_plays_a_plausible_run(ctx):
     run = await run_agent("Mail is down, please restart it", FakeDemoLLM(), build_tools(ctx.services), ctx)
     assert run.tools_called == ["search_runbooks", "check_service", "restart_service", "create_ticket", "final_answer"]

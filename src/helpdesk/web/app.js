@@ -10,6 +10,35 @@
   const chips = Array.from(document.querySelectorAll(".chip"));
   const switches = Array.from(document.querySelectorAll("#switches input[data-service]"));
   let running = false;
+  const flow = window.HelpdeskFlow || null;   // the "Live flow" diagram (flow.js); the page works without it
+
+  // ---------------------------------------------------------------- tabs: Live flow | Steps
+  const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+  function selectTab(tab, focus) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    });
+    $("#flow-ctrls").hidden = tab.id !== "tab-flow";
+    if (focus) tab.focus();
+    if (tab.id === "tab-flow" && flow) flow.redraw();
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => selectTab(t));
+    t.addEventListener("keydown", (e) => {
+      const k = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (k) { e.preventDefault(); selectTab(tabs[(i + k + tabs.length) % tabs.length], true); }
+    });
+  });
+  if (flow) {
+    flow.init({
+      root: $("#flow-card"), stage: $("#flow-stage"), caption: $("#flow-caption"), log: $("#flow-log"),
+      dock: $("#flow-dock"), dockSources: [$("#composer"), $("#status")],
+      replay: $("#flow-replay"), speeds: Array.from(document.querySelectorAll("[data-speed]")), full: $("#flow-full"),
+    });
+  }
 
   // ---------------------------------------------------------------- session id (one per browser)
   function newId() {
@@ -61,6 +90,7 @@
   if (gh) els.gh.href = gh;
   fetch("v1/meta").then((r) => r.json()).then((m) => {
     els.model.textContent = m.model || "not configured";
+    if (flow) flow.setMeta(m);
     const known = new Set(m.services || []);
     if (!m.demo) switches.forEach((s) => { s.disabled = true; s.closest(".switch").title = "Only in demo mode"; });
     switches.forEach((s) => { if (!known.has(s.dataset.service)) s.closest(".switch").hidden = true; });
@@ -71,6 +101,7 @@
     const sw = s.closest(".switch");
     sw.classList.toggle("down", !s.checked);
     sw.querySelector(".sw-state").textContent = s.checked ? "up" : "down";
+    if (flow) flow.setServices({ [s.dataset.service]: s.checked ? "up" : "down" });
   }));
   const downList = () => switches.filter((s) => !s.checked && !s.disabled).map((s) => s.dataset.service);
 
@@ -166,6 +197,8 @@
         el("div", { class: "main" }, el("div", { class: "title" }, el("span", { class: "num", text: "#" + t.id }), el("bdi", { dir: "auto", text: t.title })),
           el("div", { class: "sub", text: t.category + " · " + t.status })),
         el("span", { class: "pill " + t.priority, text: t.priority }))) : [el("li", { class: "empty", text: "No tickets yet in this visit." })]));
+      if (flow) flow.setCounts({ tickets: tickets.length, last: tickets[0] || null,
+        pending: actions.filter((a) => a.status === "pending").length });
       const rows = actions.slice().reverse().map(actionRow);
       els.actions.replaceChildren(...(rows.length ? rows : [el("li", { class: "empty", text: "Nothing waiting." })]));
     } catch (e) { /* lists are a nice-to-have; chat errors are shown elsewhere */ }
@@ -195,6 +228,7 @@
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status);
       const a = await r.json();
       li.replaceWith(actionRow(a));
+      refreshLists();
       setStatus(decision === "approve" ? "Approved. In a real company the on-call person now does the restart." : "Rejected.");
     } catch (e) {
       li.querySelectorAll("button").forEach((b) => (b.disabled = false));
@@ -220,6 +254,7 @@
     const placeholder = addThinking();
     clearTrace();
     finalRow = null;
+    if (flow) flow.begin(text);
     let reply = null, failed = false;
     try {
       const r = await fetch("v1/chat/stream", {
@@ -228,7 +263,9 @@
       });
       if (!r.ok || !r.body) {
         const j = await r.json().catch(() => ({}));
-        throw Object.assign(new Error(friendly(r.status, j.detail)), { shown: true });
+        const err = Object.assign(new Error(friendly(r.status, j.detail)), { shown: true });
+        if (flow) flow.fail(err.message);
+        throw err;
       }
       const reader = r.body.getReader();
       const dec = new TextDecoder();
@@ -244,6 +281,7 @@
           const data = chunk.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
           if (!data) continue;
           const ev = JSON.parse(data);
+          if (flow) flow.push(ev);
           if (ev.type === "model_turn") traceTurn(ev);
           else if (ev.type === "tool") traceTool(ev);
           else if (ev.type === "final") { reply = ev.reply; traceFinal(ev); addReply(ev.reply, placeholder); }
@@ -251,9 +289,13 @@
           else if (ev.type === "error") { failed = true; addError(ev.detail, placeholder); setStatus(ev.detail, true); }
         }
       }
-      if (!reply && !failed) addError("The answer stopped part way. Please try again.", placeholder);
+      if (!reply && !failed) {
+        addError("The answer stopped part way. Please try again.", placeholder);
+        if (flow) flow.fail("The answer stopped part way.");
+      }
     } catch (e) {
       const msg = e.shown ? e.message : "Could not reach the server. Check your connection and try again.";
+      if (flow && !e.shown) flow.fail(msg);
       addError(msg, placeholder);
       setStatus(msg, true);
       if (!els.trace.children.length) els.trace.append(el("li", { class: "trace-empty", text: "No steps: the request was not run." }));
