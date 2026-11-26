@@ -13,7 +13,7 @@ short_description: IT helpdesk AI agent demo (Arabic and English), tools and app
 # Helpdesk Agent (demo)
 
 A small IT helpdesk agent: searches runbooks, checks simulated services, opens tickets, and queues restarts for human
-approval. Source and docs: https://github.com/OWNER/helpdesk-agent
+approval. Source and docs: https://github.com/MontaserAlajamy/helpdesk-agent
 
 This Space runs in demo mode (simulated services, per-visitor sessions, rate limits) on a temporary SQLite database.
 Do not enter personal data or secrets.

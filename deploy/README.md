@@ -9,7 +9,7 @@
 ## Hugging Face Space
 
 1. Create a Space: SDK Docker, public.
-2. Copy `deploy/huggingface/README.md` and `deploy/huggingface/Dockerfile` to the Space repo root; replace `OWNER` in
+2. Copy `deploy/huggingface/README.md` and `deploy/huggingface/Dockerfile` to the Space repo root; (the repo URL is already set in
    both with the GitHub account (the repo must be public, or add a token build secret).
 3. Settings: secret `OPENAI_API_KEY` (an OpenRouter key with a small spend limit); variables
    `LLM_PROVIDER=openai`, `OPENAI_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL=<free model id>`.
@@ -18,7 +18,7 @@
 ## VM with Docker Compose + Cloudflare Tunnel
 
 ```bash
-git clone https://github.com/OWNER/helpdesk-agent && cd helpdesk-agent
+git clone https://github.com/MontaserAlajamy/helpdesk-agent && cd helpdesk-agent
 cp .env.example .env   # model, key; add DEMO_MODE=1 for a public demo
 docker compose up -d --build
 cloudflared tunnel --url http://localhost:8000    # quick tunnel; use a named tunnel for a stable hostname

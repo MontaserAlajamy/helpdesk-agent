@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Please do not open a public issue. Email **SECURITY_CONTACT** (placeholder: the owner sets this) or use GitHub's
+Please do not open a public issue. Use GitHub's
 "Report a vulnerability" (private advisories) on this repository. Expect a first reply within a week.
 
 ## Never commit keys

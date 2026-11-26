@@ -1,6 +1,6 @@
 # Helpdesk Agent
 
-[![ci](https://github.com/OWNER/helpdesk-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/helpdesk-agent/actions/workflows/ci.yml)
+[![ci](https://github.com/MontaserAlajamy/helpdesk-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/MontaserAlajamy/helpdesk-agent/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 An IT helpdesk AI agent you can read in an afternoon, and trust because it is measured. An employee writes, in Arabic
@@ -11,7 +11,7 @@ run is logged, and an eval suite checks what the agent actually *did*, not what 
 
 ## Try it
 
-**Live demo:** `DEMO_URL` (placeholder: the owner fills this in after deploying, see [deploy/](deploy/README.md)).
+**Live demo:** coming soon (Hugging Face Space). Run it locally in one command, below.
 The demo runs with simulated services, a per-visitor session and rate limits.
 
 **Locally, in 3 commands** (needs [uv](https://docs.astral.sh/uv/) and an API key for any supported model provider):

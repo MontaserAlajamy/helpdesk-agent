@@ -7,7 +7,7 @@ USER user
 ENV HOME=/home/user PATH=/home/user/.local/bin:$PATH
 WORKDIR /home/user/app
 
-ARG REPO_URL=https://github.com/OWNER/helpdesk-agent.git
+ARG REPO_URL=https://github.com/MontaserAlajamy/helpdesk-agent.git
 ARG REPO_REF=main
 RUN git clone --depth 1 --branch "$REPO_REF" "$REPO_URL" . \
     && pip install --no-cache-dir -e .
