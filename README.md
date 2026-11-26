@@ -11,7 +11,7 @@ run is logged, and an eval suite checks what the agent actually *did*, not what 
 
 ## Try it
 
-**Live demo:** coming soon (Hugging Face Space). Run it locally in one command, below.
+**Live demo:** https://helpdesk.alajamy.site (free model, rate-limited; each visitor sees only their own tickets).
 The demo runs with simulated services, a per-visitor session and rate limits.
 
 **Locally, in 3 commands** (needs [uv](https://docs.astral.sh/uv/) and an API key for any supported model provider):

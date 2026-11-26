@@ -35,3 +35,8 @@ the internet.
 3. Keys: put them in AWS Systems Manager Parameter Store or Secrets Manager and read them with an instance role;
    do not bake them into the image.
 4. CloudWatch metrics per run and results to S3 are on the roadmap, not implemented.
+
+## Live setup used for helpdesk.alajamy.site
+Browser → Cloudflare Worker `helpdesk-demo` (custom domain, [cloudflare/worker.js](cloudflare/worker.js)) → the demo server
+on port 8080 (installed by [vps/install.sh](vps/install.sh): systemd service, SQLite, demo mode, its own user).
+Install or update on the server: `curl -fsSL https://raw.githubusercontent.com/MontaserAlajamy/helpdesk-agent/main/deploy/vps/install.sh | sudo bash`
