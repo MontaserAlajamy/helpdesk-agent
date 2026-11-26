@@ -15,7 +15,7 @@ id -u helpdesk >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --create-h
 mkdir -p "$DATA" && chown helpdesk "$DATA"
 
 echo "== code"
-if [ -d "$APP/.git" ]; then git -C "$APP" pull -q --ff-only; else git clone -q https://github.com/MontaserAlajamy/helpdesk-agent "$APP"; fi
+if [ -d "$APP/.git" ]; then git -c safe.directory="$APP" -C "$APP" pull -q --ff-only; else git clone -q https://github.com/MontaserAlajamy/helpdesk-agent "$APP"; fi
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh >/dev/null
 cd "$APP" && UV_PYTHON_INSTALL_DIR=/opt/uv-python uv sync --frozen --no-dev -q
 chown -R helpdesk "$APP"
@@ -60,10 +60,11 @@ echo "== firewall (port $PORT)"
 iptables -C INPUT -p tcp --dport $PORT -j ACCEPT 2>/dev/null || iptables -I INPUT 5 -p tcp --dport $PORT -j ACCEPT
 command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/null 2>&1 || true
 
-sleep 4
+echo "== waiting for the app to start (up to 90 s)"
+for i in $(seq 1 45); do curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1 && break; sleep 2; done
 if curl -fsS "http://127.0.0.1:$PORT/healthz" >/dev/null; then
   echo "OK: running on port $PORT. Model: $(curl -fsS http://127.0.0.1:$PORT/v1/meta | sed 's/.*"model":"\([^"]*\)".*/\1/')"
   echo "Change the model or key: sudo nano $ENVF && sudo systemctl restart helpdesk-agent"
 else
-  echo "Not answering yet. Logs: sudo journalctl -u helpdesk-agent -n 50"
+  echo "Not answering. Last log lines:"; journalctl -u helpdesk-agent -n 25 --no-pager || true
 fi
