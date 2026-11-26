@@ -107,7 +107,7 @@ class OpenAICompatLLM:
         if client is None:
             import openai
 
-            client = openai.AsyncOpenAI(base_url=base_url)
+            client = openai.AsyncOpenAI(base_url=base_url, max_retries=6, timeout=120)
         self.client, self.model = client, model
         self.name = f"openai:{model}"
 

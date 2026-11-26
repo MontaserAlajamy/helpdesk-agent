@@ -236,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--repeat", type=int, default=1)
     a.add_argument("--only", help="comma-separated task ids")
     a.add_argument("--min-success", type=float, default=0.0)
+    a.add_argument("--concurrency", type=int, default=4)
     args = ap.parse_args(argv)
 
     if args.kind == "retrieval":
@@ -254,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
             keep = set(args.only.split(","))
             tasks = [t for t in tasks if t["id"] in keep]
         llm = build_llm(args.provider, args.model, args.base_url)
-        rep = asyncio.run(eval_agent(tasks, llm, repeat=args.repeat))
+        rep = asyncio.run(eval_agent(tasks, llm, repeat=args.repeat, concurrency=args.concurrency))
         path = _save("agent", llm.name, rep)
         keys = ["success_rate", "invalid_tool_call_rate", "forbidden_tool_calls", "violations", "avg_steps",
                 "avg_input_tokens", "avg_output_tokens", "p50_latency_ms", "p95_latency_ms"]
