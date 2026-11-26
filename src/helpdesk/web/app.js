@@ -83,6 +83,14 @@
     chips.forEach((c) => (c.disabled = on));
     els.send.textContent = on ? "Working…" : "Send";
   }
+  const DESKTOP = window.matchMedia("(hover: hover) and (pointer: fine)");
+  // On phones: close the keyboard after sending and bring the Live flow into view, so the run can be watched.
+  function showRunOnPhone() {
+    if (DESKTOP.matches) return;
+    els.msg.blur();
+    const panel = document.getElementById("flow-card");
+    if (panel) panel.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
   function scrollChat() { els.messages.scrollTop = els.messages.scrollHeight; }
 
   // ---------------------------------------------------------------- meta
@@ -268,6 +276,7 @@
     clearTrace();
     finalRow = null;
     if (flow) flow.begin(text);
+    showRunOnPhone();
     let reply = null, failed = false;
     try {
       const r = await fetch("v1/chat/stream", {
@@ -314,7 +323,8 @@
       if (!els.trace.children.length) els.trace.append(el("li", { class: "trace-empty", text: "No steps: the request was not run." }));
     } finally {
       setRunning(false);
-      els.msg.focus();
+      // Refocus the box only with a mouse/trackpad. On phones focusing it opens the keyboard and jumps the page.
+      if (DESKTOP.matches) els.msg.focus({ preventScroll: true });
       refreshLists();
     }
   }
