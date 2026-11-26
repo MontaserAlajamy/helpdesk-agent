@@ -1,0 +1,35 @@
+{"q": "VPN keeps saying authentication failed", "expect": "vpn-connect", "lang": "en"}
+{"q": "cannot connect to the company network from home", "expect": "vpn-connect", "lang": "en"}
+{"q": "remote access tunnel won't come up", "expect": "vpn-connect", "lang": "en"}
+{"q": "الـ VPN ما بيوصل من البيت", "expect": "vpn-connect", "lang": "ar"}
+{"q": "ما قادر أشتغل من البيت، الشبكة ما بتفتح", "expect": "vpn-connect", "lang": "ar"}
+{"q": "outlook stuck in outbox", "expect": "email-sync", "lang": "en"}
+{"q": "my emails are not arriving", "expect": "email-sync", "lang": "en"}
+{"q": "الإيميل ما بيرسل", "expect": "email-sync", "lang": "ar"}
+{"q": "الرسائل عالقة في الصادر", "expect": "email-sync", "lang": "ar"}
+{"q": "forgot my password", "expect": "password-reset", "lang": "en"}
+{"q": "account locked after too many attempts", "expect": "password-reset", "lang": "en"}
+{"q": "I can't sign in anymore", "expect": "password-reset", "lang": "en"}
+{"q": "نسيت كلمة السر", "expect": "password-reset", "lang": "ar"}
+{"q": "حسابي اتقفل", "expect": "password-reset", "lang": "ar"}
+{"q": "printer says offline", "expect": "printer-offline", "lang": "en"}
+{"q": "paper jam in the printer", "expect": "printer-offline", "lang": "en"}
+{"q": "الطابعة ما بتطبع", "expect": "printer-offline", "lang": "ar"}
+{"q": "wifi keeps dropping in the meeting room", "expect": "wifi-slow", "lang": "en"}
+{"q": "internet is very slow today", "expect": "wifi-slow", "lang": "en"}
+{"q": "النت بطيء جدا", "expect": "wifi-slow", "lang": "ar"}
+{"q": "الواي فاي بيقطع", "expect": "wifi-slow", "lang": "ar"}
+{"q": "the other person can't hear me on calls", "expect": "voip-no-audio", "lang": "en"}
+{"q": "softphone has no sound", "expect": "voip-no-audio", "lang": "en"}
+{"q": "التلفون ما فيهو صوت", "expect": "voip-no-audio", "lang": "ar"}
+{"q": "الطرف التاني ما بيسمعني في المكالمة", "expect": "voip-no-audio", "lang": "ar"}
+{"q": "no space left on device on the server", "expect": "disk-full-server", "lang": "en"}
+{"q": "linux box ran out of storage", "expect": "disk-full-server", "lang": "en"}
+{"q": "السيرفر المساحة خلصت", "expect": "disk-full-server", "lang": "ar"}
+{"q": "we have a new hire starting Monday", "expect": "new-employee-access", "lang": "en"}
+{"q": "need accounts for a new staff member", "expect": "new-employee-access", "lang": "en"}
+{"q": "عندنا موظف جديد محتاج إيميل", "expect": "new-employee-access", "lang": "ar"}
+{"q": "my laptop is really slow", "expect": "laptop-slow", "lang": "en"}
+{"q": "computer freezes all the time", "expect": "laptop-slow", "lang": "en"}
+{"q": "اللابتوب تقيل شديد", "expect": "laptop-slow", "lang": "ar"}
+{"q": "الجهاز بيعلق كتير", "expect": "laptop-slow", "lang": "ar"}
