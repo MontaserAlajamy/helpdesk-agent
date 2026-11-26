@@ -89,6 +89,7 @@ class TaskResult:
     latency_ms: float
     answer: str = ""
     violations: list[str] = field(default_factory=list)
+    repairs: list[str] = field(default_factory=list)
 
 
 def score_task(task: dict[str, Any], run: AgentRun) -> list[str]:
@@ -176,7 +177,7 @@ async def run_one(task: dict[str, Any], llm: LLM, services: dict[str, str], max_
         id=task["id"], passed=not fails, failures=fails, tools=run.tools_called, stop_reason=run.stop_reason,
         steps=len(run.steps), invalid_tool_calls=sum(1 for s in run.steps if not s.ok),
         input_tokens=run.usage.input_tokens, output_tokens=run.usage.output_tokens, latency_ms=run.latency_ms,
-        answer=run.reply.answer if run.reply else "", violations=run.violations,
+        answer=run.reply.answer if run.reply else "", violations=run.violations, repairs=run.repairs,
     )
 
 
@@ -203,6 +204,7 @@ async def eval_agent(tasks: list[dict[str, Any]], llm: LLM, repeat: int = 1, max
             sum(r.invalid_tool_calls for r in results) / max(1, sum(r.steps for r in results)), 3),
         "forbidden_tool_calls": sum(1 for r in results for f in r.failures if f.startswith("called forbidden")),
         "violations": sum(len(r.violations) for r in results),
+        "text_vs_field_repairs": sum(len(r.repairs) for r in results),
         "avg_steps": round(statistics.mean(r.steps for r in results), 2),
         "avg_input_tokens": round(statistics.mean(r.input_tokens for r in results)),
         "avg_output_tokens": round(statistics.mean(r.output_tokens for r in results)),
@@ -210,6 +212,25 @@ async def eval_agent(tasks: list[dict[str, Any]], llm: LLM, repeat: int = 1, max
         "p95_latency_ms": round(sorted(lat)[max(0, int(len(lat) * 0.95) - 1)]),
         "results": [asdict(r) for r in results],
     }
+
+
+def compare_table(since: str = "") -> str:
+    latest: dict[str, dict[str, Any]] = {}
+    for path in sorted((EVAL_DIR / "results").glob("*-agent-*.json")):
+        if path.name >= since:
+            rep = json.loads(path.read_text(encoding="utf-8"))
+            latest[rep["model"]] = rep
+    rows = sorted(latest.values(), key=lambda r: -r["success_rate"])
+    head = "| model | success | forbidden calls | invented tickets | bad tool args | steps | tokens in/out | p50 s |"
+    lines = [head, "|" + "---|" * 8]
+    for r in rows:
+        lines.append(
+            f"| {r['model'].split(':', 1)[1]} | {r['success_rate']:.0%} "
+            f"({round(r['success_rate'] * r['runs'])}/{r['runs']}) "
+            f"| {r['forbidden_tool_calls']} | {r['violations']} | {r['invalid_tool_call_rate']:.1%} | {r['avg_steps']} "
+            f"| {r['avg_input_tokens']}/{r['avg_output_tokens']} | {r['p50_latency_ms'] / 1000:.1f} |"
+        )
+    return "\n".join(lines)
 
 
 # ------------------------------------------------------------------ CLI
@@ -237,7 +258,13 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--only", help="comma-separated task ids")
     a.add_argument("--min-success", type=float, default=0.0)
     a.add_argument("--concurrency", type=int, default=4)
+    c = sub.add_parser("compare", help="table of the latest agent result per model")
+    c.add_argument("--since", default="", help="only result files whose name sorts at or after this (e.g. 20261126)")
     args = ap.parse_args(argv)
+
+    if args.kind == "compare":
+        print(compare_table(args.since))
+        return 0
 
     if args.kind == "retrieval":
         rep = asyncio.run(eval_retrieval(read_jsonl(EVAL_DIR / "retrieval.jsonl")))
@@ -257,7 +284,8 @@ def main(argv: list[str] | None = None) -> int:
         llm = build_llm(args.provider, args.model, args.base_url)
         rep = asyncio.run(eval_agent(tasks, llm, repeat=args.repeat, concurrency=args.concurrency))
         path = _save("agent", llm.name, rep)
-        keys = ["success_rate", "invalid_tool_call_rate", "forbidden_tool_calls", "violations", "avg_steps",
+        keys = ["success_rate", "invalid_tool_call_rate", "forbidden_tool_calls", "violations", "text_vs_field_repairs",
+                "avg_steps",
                 "avg_input_tokens", "avg_output_tokens", "p50_latency_ms", "p95_latency_ms"]
         print(f"agent {rep['model']}: runs={rep['runs']} " + " ".join(f"{k}={rep[k]}" for k in keys))
         for res in rep["results"]:

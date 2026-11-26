@@ -68,3 +68,31 @@ async def test_unknown_tool_is_reported(ctx):
                                                                  needs_human=False))])
     run = await run_agent("x", llm, build_tools(ctx.services), ctx)
     assert run.steps[0].tool == "rm_rf" and not run.steps[0].ok
+
+
+def test_tickets_in_text_reads_english_and_arabic():
+    from helpdesk.agent import tickets_in_text
+
+    assert tickets_in_text("I opened ticket #12 for you") == [12]
+    assert tickets_in_text("Ticket 3 and ticket number 4") == [3, 4]
+    assert tickets_in_text("فتحت تذكرة رقم ١٢ لفريق الشبكة") == [12]
+    assert tickets_in_text("Call extension 4512 or try port 443") == []
+
+
+async def test_text_cites_real_ticket_but_field_empty_is_repaired(ctx):
+    llm = ScriptedLLM([
+        respond(call("create_ticket", 0, title="VPN fails after all steps", description="User tried every step.",
+                     priority="high", category="network")),
+        respond(call("final_answer", 1, answer="فتحت تذكرة رقم 1 لفريق الشبكة", language="ar", ticket_id=None,
+                     needs_human=True)),
+    ])
+    run = await run_agent("vpn", llm, build_tools(ctx.services), ctx)
+    assert run.reply.ticket_id == 1 and not run.violations
+    assert run.repairs and "filled" in run.repairs[0]
+
+
+async def test_text_cites_invented_ticket_is_a_violation(ctx):
+    llm = ScriptedLLM([respond(call("final_answer", answer="Your ticket #77 is in progress.", language="en",
+                                    needs_human=False))])
+    run = await run_agent("status?", llm, build_tools(ctx.services), ctx)
+    assert run.violations == ["answer text cites ticket 77 that no tool returned"]

@@ -8,6 +8,7 @@ and a final answer may only cite a ticket id that a tool returned in this run.
 from __future__ import annotations
 
 import json
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -55,6 +56,7 @@ class AgentRun:
     model_turns: int = 0
     latency_ms: float = 0.0
     violations: list[str] = field(default_factory=list)
+    repairs: list[str] = field(default_factory=list)  # structured fields fixed from verified facts
 
     @property
     def tools_called(self) -> list[str]:
@@ -131,6 +133,23 @@ async def _run_tool(call: ToolCall, tools: dict[str, Tool], ctx: ToolContext, ru
     return res.content
 
 
+_TICKET_REF = re.compile(
+    r"(?:ticket|tickets|تذكرة|التذكرة|تذكره|التذكره)\s*(?:no\.?|number|num\.?|رقم)?\s*[#:]?\s*([0-9٠-٩]{1,9})"
+    r"|#([0-9٠-٩]{1,9})\b",
+    re.IGNORECASE,
+)
+
+
+def tickets_in_text(text: str) -> list[int]:
+    """Ticket numbers a reply mentions ('ticket #12', 'Ticket 12', 'تذكرة رقم ١٢'), Arabic-Indic digits included."""
+    found: list[int] = []
+    for m in _TICKET_REF.finditer(text):
+        digits = (m.group(1) or m.group(2)).translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+        if int(digits) not in found:
+            found.append(int(digits))
+    return found
+
+
 def _parse_final(call: ToolCall, ctx: ToolContext, run: AgentRun) -> tuple[FinalAnswerArgs | None, str]:
     try:
         final = FinalAnswerArgs.model_validate(call.args)
@@ -140,5 +159,12 @@ def _parse_final(call: ToolCall, ctx: ToolContext, run: AgentRun) -> tuple[Final
     if final.ticket_id is not None and final.ticket_id not in ctx.seen_ticket_ids:
         run.violations.append(f"cited ticket {final.ticket_id} that no tool returned")
         final = final.model_copy(update={"ticket_id": None, "needs_human": True})
+    # the text and the structured field must tell the same story
+    for n in tickets_in_text(final.answer):
+        if n not in ctx.seen_ticket_ids:
+            run.violations.append(f"answer text cites ticket {n} that no tool returned")
+        elif final.ticket_id is None:
+            run.repairs.append(f"answer text cites ticket {n} but ticket_id was empty: filled")
+            final = final.model_copy(update={"ticket_id": n})
     run.steps.append(StepRecord(len(run.steps) + 1, "final_answer", call.args, True, "", 0.0))
     return final, json.dumps({"ok": True})
