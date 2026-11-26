@@ -116,13 +116,26 @@
     scrollChat();
     return li;
   }
+  // Models write light markdown and sometimes run numbered steps together ("runbook:1. Open… ticket.2. If…").
+  // Put each numbered step on its own line and turn **bold** into <strong>. Built from DOM nodes, never innerHTML.
+  function formatAnswer(text) {
+    const tidy = String(text || "")
+      .replace(/([:.!?)\]])[ \t]*(\d{1,2}\.[ \t]+)(?=\S)/g, "$1\n$2")
+      .replace(/([^\n])[ \t]+([•▪-][ \t]+)(?=\S)/g, (m, a, b) => (b.trim() === "-" ? m : a + "\n" + b));
+    const frag = document.createDocumentFragment();
+    tidy.split(/(\*\*[^*\n]+\*\*)/g).forEach((part) => {
+      if (/^\*\*[^*\n]+\*\*$/.test(part)) frag.append(el("strong", { text: part.slice(2, -2) }));
+      else if (part) frag.append(document.createTextNode(part));
+    });
+    return frag;
+  }
   function addReply(reply, placeholder) {
     const badges = el("div", { class: "badges" },
       el("span", { class: "badge", text: reply.language === "ar" ? "Arabic" : "English" }),
       reply.needs_human ? el("span", { class: "badge human", text: "needs a person" }) : null,
       reply.ticket_id ? el("span", { class: "badge ticket", text: "ticket #" + reply.ticket_id }) : null);
     const li = el("li", { class: "msg agent", dir: reply.language === "ar" ? "rtl" : "auto", lang: reply.language },
-      el("div", { class: "bubble", dir: "auto", text: reply.answer }), badges);
+      el("div", { class: "bubble", dir: "auto" }, formatAnswer(reply.answer)), badges);
     placeholder ? placeholder.replaceWith(li) : els.messages.append(li);
     scrollChat();
   }

@@ -21,6 +21,7 @@ export default {
         headers,
         body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
         redirect: "manual",
+        cache: "no-store", // the app changes on deploy; never serve stale JS/CSS from Cloudflare's cache
       });
       if (res.status >= 520 && res.status <= 530) throw new Error("origin " + res.status);
       return new Response(res.body, res);

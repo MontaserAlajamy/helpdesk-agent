@@ -191,7 +191,7 @@ def test_live_flow_files_are_served_and_linked(tmp_path):
         meta = c.get("/v1/meta").json()
     assert js.status_code == 200 and "javascript" in js.headers["content-type"] and "HelpdeskFlow" in js.text
     assert css.status_code == 200 and "text/css" in css.headers["content-type"]
-    assert '<script src="flow.js"></script>' in page and 'href="flow.css"' in page
+    assert '<script src="flow.js?v=' in page and 'href="flow.css?v=' in page
     assert page.index("flow.js") < page.index("app.js")  # app.js drives the flow, so it loads second
     assert 'id="flow-stage"' in page and 'role="tablist"' in page
     assert meta["tools"] == 6 and meta["guides"] == 9
