@@ -55,3 +55,13 @@ async def test_agent_eval_scores_a_weak_policy_below_one():
 async def test_retrieval_eval_baseline_holds():
     rep = await eval_retrieval(read_jsonl(EVAL_DIR / "retrieval.jsonl"))
     assert rep["recall@3"] >= 0.8  # baseline measured 2026-11-26: 0.857
+
+
+async def test_services_are_up_unless_the_task_says_down():
+    from helpdesk.evals import LocalServices
+
+    local = LocalServices()
+    async with local as services:
+        assert services["mail"] != local.down_url
+        per_task = local.for_task(services, {"down": ["mail"]})
+        assert per_task["mail"] == local.down_url and per_task["pbx"] == services["pbx"]

@@ -129,7 +129,8 @@ def score_task(task: dict[str, Any], run: AgentRun) -> list[str]:
 
 
 class LocalServices:
-    """Real endpoints for check_service: intranet (HTTP 200), pbx (TCP open), mail (closed port = down)."""
+    """Real endpoints for check_service: intranet (HTTP 200), pbx and mail (TCP open). A task lists the services
+    that are down for it ("down": ["mail"]); those point at a closed port instead."""
 
     async def __aenter__(self) -> dict[str, str]:
         async def http_ok(reader, writer):
@@ -147,11 +148,17 @@ class LocalServices:
         closed_port = closed.sockets[0].getsockname()[1]
         closed.close()
         await closed.wait_closed()
+        self.down_url = f"tcp://127.0.0.1:{closed_port}"
+        tcp_url = f"tcp://127.0.0.1:{self.tcp.sockets[0].getsockname()[1]}"
         return {
             "intranet": f"http://127.0.0.1:{self.http.sockets[0].getsockname()[1]}/healthz",
-            "pbx": f"tcp://127.0.0.1:{self.tcp.sockets[0].getsockname()[1]}",
-            "mail": f"tcp://127.0.0.1:{closed_port}",
+            "pbx": tcp_url,
+            "mail": tcp_url,
         }
+
+    def for_task(self, services: dict[str, str], task: dict[str, Any]) -> dict[str, str]:
+        down = set(task.get("down", []))
+        return {name: (self.down_url if name in down else url) for name, url in services.items()}
 
     async def __aexit__(self, *exc) -> None:
         for srv in (self.http, self.tcp):
@@ -184,12 +191,13 @@ async def run_one(task: dict[str, Any], llm: LLM, services: dict[str, str], max_
 async def eval_agent(tasks: list[dict[str, Any]], llm: LLM, repeat: int = 1, max_steps: int = 6,
                      concurrency: int = 4) -> dict[str, Any]:
     sem = asyncio.Semaphore(concurrency)
-    async with LocalServices() as services:
+    local = LocalServices()
+    async with local as services:
 
         async def guarded(task):
             async with sem:
                 try:
-                    return await run_one(task, llm, services, max_steps)
+                    return await run_one(task, llm, local.for_task(services, task), max_steps)
                 except Exception as e:  # an API error is a failed task, not a crashed eval
                     return TaskResult(task["id"], False, [f"error: {type(e).__name__}: {e}"[:300]], [], "error",
                                       0, 0, 0, 0, 0.0)
