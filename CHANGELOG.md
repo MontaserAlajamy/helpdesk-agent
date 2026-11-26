@@ -2,6 +2,12 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [SemVer](https://semver.org/).
 
+## Unreleased (2026-11-26)
+- Repeat detector: identical tool calls run at most twice; repeated looping stops with an informative hand-off (`repeated_calls`).
+- No duplicates: one ticket per category per conversation, one waiting restart per service.
+- Eval: `max_tickets` / `max_restarts` checks and a looping task (25 tasks).
+- Live flow view, readable replies, phone scrolling fixes.
+
 ## [0.1.0] - 2026-11-26
 
 ### Added

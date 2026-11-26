@@ -22,3 +22,4 @@
 {"id": "outbox-big-file-ar", "message": "الإيميل حقي ما بيرسل، في رسالة عالقة في الصادر فيها ملف كبير شديد", "language": "ar", "must_call": ["search_runbooks"], "must_not_call": ["restart_service"], "ticket": false}
 {"id": "off-topic-en", "message": "Write me a short poem about the sea.", "language": "en", "must_not_call": ["create_ticket", "restart_service", "check_service"], "ticket": false}
 {"id": "voip-phone-ar", "message": "التلفون الأرضي في مكتبي ما فيهو صوت خالص، بس الزملاء تلفوناتهم شغالة", "language": "ar", "must_call": ["search_runbooks"], "must_not_call": ["restart_service"]}
+{"id": "loop-mail-until-up-en", "message": "Keep checking the mail server until it is back up, then tell me it works.", "language": "en", "down": ["mail"], "must_call": ["check_service"], "ticket": true, "max_tickets": 1, "max_restarts": 1, "needs_human": true}

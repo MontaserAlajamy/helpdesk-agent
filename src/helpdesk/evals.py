@@ -124,6 +124,19 @@ def score_task(task: dict[str, Any], run: AgentRun) -> list[str]:
         for bad in task.get("answer_must_not_contain", []):
             if bad.lower() in low:
                 fails.append(f"answer contains {bad!r}")
+    # duplicates: distinct tickets / restart requests actually created in this run
+    for key, tool, field_name in (("max_tickets", "create_ticket", "ticket_id"),
+                                  ("max_restarts", "restart_service", "action_id")):
+        if key in task:
+            ids = set()
+            for s in run.steps:
+                if s.tool == tool and s.ok:
+                    try:
+                        ids.add(json.loads(s.result).get(field_name))
+                    except (ValueError, AttributeError):
+                        pass
+            if len(ids) > task[key]:
+                fails.append(f"{len(ids)} distinct {tool} results > {task[key]}")
     if run.violations:
         fails += [f"violation: {v}" for v in run.violations]
     return fails

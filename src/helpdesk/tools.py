@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from . import runbooks
@@ -40,6 +41,8 @@ class ToolContext:
     # ids of tickets this run created or read: the final answer may only cite these
     seen_ticket_ids: set[int] = field(default_factory=set)
     pending_action_ids: list[int] = field(default_factory=list)
+    # no duplicates: one ticket per category per conversation (category -> ticket id)
+    created_tickets: dict[str, int] = field(default_factory=dict)
 
 
 class SearchRunbooksArgs(BaseModel):
@@ -128,12 +131,17 @@ async def check_service(ctx: ToolContext, a: CheckServiceArgs) -> dict[str, Any]
 
 
 async def create_ticket(ctx: ToolContext, a: CreateTicketArgs) -> dict[str, Any]:
+    existing = ctx.created_tickets.get(a.category)
+    if existing is not None:  # the same problem already has a ticket in this conversation
+        return {"ticket_id": existing, "status": "already_open",
+                "note": "A ticket for this was already opened in this conversation. No new ticket was created."}
     async with ctx.sessions() as s:
         t = Ticket(title=a.title, description=a.description, priority=a.priority, category=a.category,
                    owner=ctx.owner)
         s.add(t)
         await s.commit()
         ctx.seen_ticket_ids.add(t.id)
+        ctx.created_tickets[a.category] = t.id
         return {"ticket_id": t.id, "status": t.status, "priority": t.priority}
 
 
@@ -151,6 +159,15 @@ async def restart_service(ctx: ToolContext, a: RestartServiceArgs) -> dict[str, 
     if a.name not in ctx.services:
         raise ToolError(f"unknown service {a.name!r}; known: {sorted(ctx.services)}")
     async with ctx.sessions() as s:
+        # no duplicates: one waiting restart per service (per demo visitor); a person decides once
+        pending = (await s.execute(select(PendingAction).where(
+            PendingAction.tool == "restart_service", PendingAction.status == "pending",
+            PendingAction.owner.is_(None) if ctx.owner is None else PendingAction.owner == ctx.owner,
+        ))).scalars().all()
+        same = next((p for p in pending if (p.args or {}).get("name") == a.name), None)
+        if same is not None:
+            return {"status": "already_pending", "action_id": same.id,
+                    "note": f"A restart for {a.name} is already waiting for approval. Nothing new was queued."}
         act = PendingAction(run_id=ctx.run_id, tool="restart_service", args=a.model_dump(), owner=ctx.owner)
         s.add(act)
         await s.commit()

@@ -244,6 +244,18 @@ The guards in `_parse_final`:
 - ticket numbers *written in the text* are found with a pattern (English and Arabic, Arabic-Indic digits too):
   real but missing from the field → filled in (**repair**); not real and not typed by the user → **violation**.
 
+**Loop and duplicate guards (added 2026-11-26 after a looping test):**
+- *Repeat detector:* the same tool with exactly the same arguments runs at most twice per conversation. A third
+  identical call is not run; the model is told to use what it already has and gets one more turn to answer. If it
+  repeats again in a second turn, the run stops (`repeated_calls`) with a hand-off that says what was checked
+  ("What I checked: mail is down") and names the ticket if one was opened.
+- *No duplicates:* one ticket per category per conversation (a second `create_ticket` returns the first ticket as
+  `already_open`), and one waiting restart per service (a second request returns the existing one as
+  `already_pending` until a person decides). In the demo each visitor has their own queue.
+- Measured on "Keep checking the mail server until it is back up" with mail down: before, 2 of 2 runs hit the
+  6-step limit and one opened 2 tickets and 2 restart requests; after, no duplicates in any run and most runs end
+  with a real answer.
+
 ### 5.8 The API (`api.py`)
 | Endpoint | Does |
 |---|---|
@@ -364,6 +376,7 @@ Note: a different vector size needs the `Embedding` dimension changed in `db.py`
 | `expected list or ndarray` from asyncpg | a vector codec registered on the connection | don't register one; this project sends vectors as text on purpose (see `make_engine`) |
 | agent stops with `max_steps` | the model loops (common with weak models) | read the step diary; a better model, a clearer tool description, or a prompt rule |
 | `violation: …ticket … no tool returned` | the model mentioned a ticket that does not exist | working as designed: the guard caught it |
+| stop reason `repeated_calls` | the model kept repeating the same call | working as designed; read the steps, and if a task legitimately needs repeats, give the tool a different argument (e.g. a time) |
 | a task fails but the agent looks right | the exam may be wrong | read the answer and the tools; fix the task if needed (section 6) |
 | `UV_NATIVE_TLS is deprecated` warning | an environment variable in this machine | harmless; `unset UV_NATIVE_TLS` |
 
