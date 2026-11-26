@@ -30,6 +30,7 @@ class Settings(BaseModel):
     services: dict[str, str] = Field(default_factory=dict)
     embed_dim: int = 256
     check_timeout_s: float = 3.0
+    demo_mode: bool = False  # public demo: simulated services, per-visitor isolation, abuse limits
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -41,4 +42,5 @@ class Settings(BaseModel):
             openai_base_url=env.get("OPENAI_BASE_URL") or None,
             max_steps=int(env.get("MAX_STEPS", "6")),
             services=parse_services(env.get("SERVICES", "")),
+            demo_mode=env.get("DEMO_MODE", "").strip().lower() in {"1", "true", "yes", "on"},
         )

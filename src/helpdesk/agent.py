@@ -11,8 +11,9 @@ import json
 import re
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -34,6 +35,7 @@ How you work:
 - Always finish by calling final_answer."""
 
 StopReason = Literal["final_answer", "max_steps", "no_tool_call"]
+EventHandler = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 @dataclass
@@ -74,8 +76,20 @@ def guess_language(text: str) -> Literal["ar", "en"]:
     return "ar" if arabic > len(text) * 0.2 else "en"
 
 
+def step_event(s: StepRecord) -> dict[str, Any]:
+    return {"type": "tool", "step": s.step, "tool": s.tool, "args": s.args, "ok": s.ok,
+            "result_preview": s.result[:300], "latency_ms": s.latency_ms}
+
+
 async def run_agent(message: str, llm: LLM, tools: dict[str, Tool], ctx: ToolContext,
-                    max_steps: int = 6, run_id: str | None = None) -> AgentRun:
+                    max_steps: int = 6, run_id: str | None = None,
+                    on_event: EventHandler | None = None) -> AgentRun:
+    """Run the loop. `on_event`, if given, is awaited with small dicts as the run goes (model_turn, tool, final)."""
+
+    async def emit(event: dict[str, Any]) -> None:
+        if on_event is not None:
+            await on_event(event)
+
     run = AgentRun(run_id=run_id or str(uuid.uuid4()), reply=None, stop_reason="max_steps")
     ctx.run_id = run.run_id
     schemas = [t.schema() for t in tools.values()] + [FINAL_ANSWER.schema()]
@@ -87,6 +101,7 @@ async def run_agent(message: str, llm: LLM, tools: dict[str, Tool], ctx: ToolCon
         resp = await llm.complete(SYSTEM_PROMPT, messages, schemas)
         run.model_turns += 1
         run.usage.add(resp.usage)
+        await emit({"type": "model_turn", "turn": run.model_turns})
         messages.append(Message("assistant", resp.text, tool_calls=resp.tool_calls))
 
         if not resp.tool_calls:
@@ -103,10 +118,10 @@ async def run_agent(message: str, llm: LLM, tools: dict[str, Tool], ctx: ToolCon
         for call in ordered:
             if call.name == FINAL_ANSWER.name:
                 final, content = _parse_final(call, ctx, run, message)
-                messages.append(Message("tool", content, tool_call_id=call.id))
-                continue
-            content = await _run_tool(call, tools, ctx, run)
+            else:
+                content = await _run_tool(call, tools, ctx, run)
             messages.append(Message("tool", content, tool_call_id=call.id))
+            await emit(step_event(run.steps[-1]))
 
         if final is not None:
             run.reply = final
@@ -116,6 +131,8 @@ async def run_agent(message: str, llm: LLM, tools: dict[str, Tool], ctx: ToolCon
     if run.reply is None:
         run.reply = fallback_reply(guess_language(message))
     run.latency_ms = round((time.perf_counter() - t0) * 1000, 1)
+    await emit({"type": "final", "reply": run.reply.model_dump(), "stop_reason": run.stop_reason,
+                "violations": list(run.violations), "repairs": list(run.repairs)})
     return run
 
 

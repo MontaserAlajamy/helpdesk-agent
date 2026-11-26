@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, inspect
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -49,6 +49,7 @@ class Ticket(Base):
     category: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(16), default="open")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    owner: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # demo visitor session
 
 
 class Runbook(Base):
@@ -71,6 +72,7 @@ class PendingAction(Base):
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | approved | rejected
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    owner: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # demo visitor session
 
 
 class AgentRunRow(Base):
@@ -109,6 +111,18 @@ async def create_schema(engine: AsyncEngine) -> None:
         if engine.dialect.name == "postgresql":
             await conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
+
+
+# columns added after the first release: create_all does not alter existing tables, so add them by hand
+_LATER_COLUMNS = [("tickets", "owner", "VARCHAR(64)"), ("pending_actions", "owner", "VARCHAR(64)")]
+
+
+def _add_missing_columns(conn) -> None:
+    insp = inspect(conn)
+    for table, column, ddl in _LATER_COLUMNS:
+        if insp.has_table(table) and column not in {c["name"] for c in insp.get_columns(table)}:
+            conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
 def make_sessionmaker(engine: AsyncEngine) -> async_sessionmaker:

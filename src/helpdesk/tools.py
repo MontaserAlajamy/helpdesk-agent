@@ -36,6 +36,7 @@ class ToolContext:
     services: dict[str, str]
     run_id: str = ""
     check_timeout_s: float = 3.0
+    owner: str | None = None  # demo visitor session: tickets and actions are stamped with it and only it sees them
     # ids of tickets this run created or read: the final answer may only cite these
     seen_ticket_ids: set[int] = field(default_factory=set)
     pending_action_ids: list[int] = field(default_factory=list)
@@ -128,7 +129,8 @@ async def check_service(ctx: ToolContext, a: CheckServiceArgs) -> dict[str, Any]
 
 async def create_ticket(ctx: ToolContext, a: CreateTicketArgs) -> dict[str, Any]:
     async with ctx.sessions() as s:
-        t = Ticket(title=a.title, description=a.description, priority=a.priority, category=a.category)
+        t = Ticket(title=a.title, description=a.description, priority=a.priority, category=a.category,
+                   owner=ctx.owner)
         s.add(t)
         await s.commit()
         ctx.seen_ticket_ids.add(t.id)
@@ -138,7 +140,7 @@ async def create_ticket(ctx: ToolContext, a: CreateTicketArgs) -> dict[str, Any]
 async def get_ticket(ctx: ToolContext, a: GetTicketArgs) -> dict[str, Any]:
     async with ctx.sessions() as s:
         t = await s.get(Ticket, a.ticket_id)
-    if t is None:
+    if t is None or (ctx.owner is not None and t.owner != ctx.owner):
         raise ToolError(f"ticket {a.ticket_id} not found")
     ctx.seen_ticket_ids.add(t.id)
     return {"ticket_id": t.id, "title": t.title, "status": t.status, "priority": t.priority,
@@ -149,7 +151,7 @@ async def restart_service(ctx: ToolContext, a: RestartServiceArgs) -> dict[str, 
     if a.name not in ctx.services:
         raise ToolError(f"unknown service {a.name!r}; known: {sorted(ctx.services)}")
     async with ctx.sessions() as s:
-        act = PendingAction(run_id=ctx.run_id, tool="restart_service", args=a.model_dump())
+        act = PendingAction(run_id=ctx.run_id, tool="restart_service", args=a.model_dump(), owner=ctx.owner)
         s.add(act)
         await s.commit()
         ctx.pending_action_ids.append(act.id)
