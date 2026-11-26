@@ -77,6 +77,9 @@ def test_tickets_in_text_reads_english_and_arabic():
     assert tickets_in_text("Ticket 3 and ticket number 4") == [3, 4]
     assert tickets_in_text("فتحت تذكرة رقم ١٢ لفريق الشبكة") == [12]
     assert tickets_in_text("Call extension 4512 or try port 443") == []
+    assert tickets_in_text("تم فتح تذكرة صيانة للطابعة (رقم 2). فريق الدعم سيتواصل معك") == [2]
+    assert tickets_in_text("I opened a ticket for the network team (number 5)") == [5]
+    assert tickets_in_text("Please open a ticket if it fails after 3 tries.") == []
 
 
 async def test_text_cites_real_ticket_but_field_empty_is_repaired(ctx):
@@ -96,3 +99,12 @@ async def test_text_cites_invented_ticket_is_a_violation(ctx):
                                     needs_human=False))])
     run = await run_agent("status?", llm, build_tools(ctx.services), ctx)
     assert run.violations == ["answer text cites ticket 77 that no tool returned"]
+
+
+async def test_repeating_the_users_own_ticket_number_is_not_a_violation(ctx):
+    llm = ScriptedLLM([
+        respond(call("get_ticket", 0, ticket_id=9999)),
+        respond(call("final_answer", 1, answer="I could not find ticket 9999.", language="en", needs_human=False)),
+    ])
+    run = await run_agent("What's the status of ticket 9999?", llm, build_tools(ctx.services), ctx)
+    assert run.violations == [] and run.reply.ticket_id is None

@@ -102,7 +102,7 @@ async def run_agent(message: str, llm: LLM, tools: dict[str, Tool], ctx: ToolCon
         ordered = sorted(resp.tool_calls, key=lambda c: c.name == FINAL_ANSWER.name)
         for call in ordered:
             if call.name == FINAL_ANSWER.name:
-                final, content = _parse_final(call, ctx, run)
+                final, content = _parse_final(call, ctx, run, message)
                 messages.append(Message("tool", content, tool_call_id=call.id))
                 continue
             content = await _run_tool(call, tools, ctx, run)
@@ -133,8 +133,14 @@ async def _run_tool(call: ToolCall, tools: dict[str, Tool], ctx: ToolContext, ru
     return res.content
 
 
+_AR_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+_TICKET_WORD = r"(?:tickets?|تذكر[ةه]|التذكر[ةه])"
 _TICKET_REF = re.compile(
-    r"(?:ticket|tickets|تذكرة|التذكرة|تذكره|التذكره)\s*(?:no\.?|number|num\.?|رقم)?\s*[#:]?\s*([0-9٠-٩]{1,9})"
+    # "ticket #12", "Ticket 12", "تذكرة ١٢"
+    _TICKET_WORD + r"\s*[#:]?\s*([0-9٠-٩]{1,9})"
+    # "ticket number 12", "تذكرة صيانة للطابعة (رقم 2)": a few words, then a number marker
+    r"|" + _TICKET_WORD + r"[^0-9٠-٩.!?\n،؛]{0,40}?(?:رقم|number|no\.?|num\.?|#)\s*[:#]?\s*([0-9٠-٩]{1,9})"
+    # "#12" on its own
     r"|#([0-9٠-٩]{1,9})\b",
     re.IGNORECASE,
 )
@@ -144,13 +150,14 @@ def tickets_in_text(text: str) -> list[int]:
     """Ticket numbers a reply mentions ('ticket #12', 'Ticket 12', 'تذكرة رقم ١٢'), Arabic-Indic digits included."""
     found: list[int] = []
     for m in _TICKET_REF.finditer(text):
-        digits = (m.group(1) or m.group(2)).translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
+        digits = (m.group(1) or m.group(2) or m.group(3)).translate(_AR_DIGITS)
         if int(digits) not in found:
             found.append(int(digits))
     return found
 
 
-def _parse_final(call: ToolCall, ctx: ToolContext, run: AgentRun) -> tuple[FinalAnswerArgs | None, str]:
+def _parse_final(call: ToolCall, ctx: ToolContext, run: AgentRun, user_message: str = "") -> tuple[
+        FinalAnswerArgs | None, str]:
     try:
         final = FinalAnswerArgs.model_validate(call.args)
     except ValidationError as e:
@@ -160,11 +167,13 @@ def _parse_final(call: ToolCall, ctx: ToolContext, run: AgentRun) -> tuple[Final
         run.violations.append(f"cited ticket {final.ticket_id} that no tool returned")
         final = final.model_copy(update={"ticket_id": None, "needs_human": True})
     # the text and the structured field must tell the same story
+    user_numbers = {int(d) for d in re.findall(r"[0-9]{1,9}", user_message.translate(_AR_DIGITS))}
     for n in tickets_in_text(final.answer):
-        if n not in ctx.seen_ticket_ids:
+        if n in ctx.seen_ticket_ids:
+            if final.ticket_id is None:
+                run.repairs.append(f"answer text cites ticket {n} but ticket_id was empty: filled")
+                final = final.model_copy(update={"ticket_id": n})
+        elif n not in user_numbers:  # repeating the user's own number ("ticket 9999 not found") is fine
             run.violations.append(f"answer text cites ticket {n} that no tool returned")
-        elif final.ticket_id is None:
-            run.repairs.append(f"answer text cites ticket {n} but ticket_id was empty: filled")
-            final = final.model_copy(update={"ticket_id": n})
     run.steps.append(StepRecord(len(run.steps) + 1, "final_answer", call.args, True, "", 0.0))
     return final, json.dumps({"ok": True})
