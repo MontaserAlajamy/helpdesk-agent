@@ -1,0 +1,65 @@
+{
+  "embedder": "hashing-256",
+  "n": 35,
+  "recall@1": 0.743,
+  "recall@3": 0.857,
+  "by_lang": {
+    "ar": {
+      "n": 15,
+      "recall@1": 0.733,
+      "recall@3": 0.933
+    },
+    "en": {
+      "n": 20,
+      "recall@1": 0.75,
+      "recall@3": 0.8
+    }
+  },
+  "misses": [
+    {
+      "q": "remote access tunnel won't come up",
+      "expect": "vpn-connect",
+      "got": [
+        "password-reset",
+        "disk-full-server",
+        "new-employee-access"
+      ]
+    },
+    {
+      "q": "I can't sign in anymore",
+      "expect": "password-reset",
+      "got": [
+        "laptop-slow",
+        "wifi-slow",
+        "voip-no-audio"
+      ]
+    },
+    {
+      "q": "حسابي اتقفل",
+      "expect": "password-reset",
+      "got": [
+        "new-employee-access",
+        "printer-offline",
+        "laptop-slow"
+      ]
+    },
+    {
+      "q": "internet is very slow today",
+      "expect": "wifi-slow",
+      "got": [
+        "laptop-slow",
+        "email-sync",
+        "vpn-connect"
+      ]
+    },
+    {
+      "q": "computer freezes all the time",
+      "expect": "laptop-slow",
+      "got": [
+        "vpn-connect",
+        "wifi-slow",
+        "printer-offline"
+      ]
+    }
+  ]
+}

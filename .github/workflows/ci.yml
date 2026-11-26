@@ -5,8 +5,17 @@ on:
   workflow_dispatch:
     inputs:
       model:
-        description: "Model id for the agent eval"
-        required: true
+        description: "Model id for the agent eval (leave empty to skip the eval job)"
+        required: false
+        default: ""
+      provider:
+        description: "anthropic or openai (openai also covers OpenRouter)"
+        required: false
+        default: "openai"
+      base_url:
+        description: "OpenAI-compatible base URL"
+        required: false
+        default: "https://openrouter.ai/api/v1"
 
 jobs:
   test:
@@ -27,21 +36,32 @@ jobs:
       - run: uv run pytest -q
       - name: Retrieval eval (gate)
         run: uv run python -m helpdesk.evals retrieval --min-recall3 0.8
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: docker build -t helpdesk-agent .
 
   agent-eval:
     # Costs API money, so it runs only when started by hand with a model id.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.model != ''
     needs: test
     runs-on: ubuntu-latest
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
       - name: Agent eval (gate)
-        run: uv run python -m helpdesk.evals agent --model "${{ inputs.model }}" --min-success 0.8
+        run: >
+          uv run python -m helpdesk.evals agent
+          --provider "${{ inputs.provider }}"
+          --base-url "${{ inputs.base_url }}"
+          --model "${{ inputs.model }}"
+          --min-success 0.8
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: agent-eval, path: evals/results/}
